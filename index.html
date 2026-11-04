@@ -1,4 +1,3 @@
-Tap the download or copy icon in the top corner of this code block to save it directly to your phone as index.html. Once saved, you can upload it to GitHub using the "Choose your files" button.
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -83,11 +82,11 @@ Tap the download or copy icon in the top corner of this code block to save it di
         .phase-text { font-size: 0.8rem; letter-spacing: 1px; }
         .timer-text { font-size: 1.5rem; font-weight: bold; color: orange; }
 
-        /* Map Container Fixed Height */
+        /* Map Container */
         #map-container {
             flex-grow: 1;
             position: relative;
-            min-height: 200px; /* Prevents collapsing to 0 */
+            min-height: 200px;
         }
 
         #map {
@@ -96,10 +95,21 @@ Tap the download or copy icon in the top corner of this code block to save it di
             background-color: #000;
         }
 
-        /* Radar Filter for Standard Maps */
+        /* Radar Filter for Maps */
         .leaflet-tile {
             filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(120%);
         }
+
+        /* Tactical Tooltips (Popups) */
+        .leaflet-tooltip {
+            background-color: #000 !important;
+            color: var(--text-main) !important;
+            border: 1px solid var(--text-main) !important;
+            font-family: var(--font-tactical) !important;
+            font-weight: bold;
+            box-shadow: 0 0 5px var(--text-main) !important;
+        }
+        .leaflet-tooltip-top:before { border-top-color: var(--text-main) !important; }
 
         /* Screens */
         .screen {
@@ -267,11 +277,11 @@ Tap the download or copy icon in the top corner of this code block to save it di
         let isHost = false;
         let role = "";
         let map, userMarker;
-        let userLat = 33.6000; // Default: Mission Viejo, CA
+        let userLat = 33.6000; // Default coordinates
         let userLng = -117.6720;
         let hasLocation = false;
         
-        // Mock Party Data (Replaces Firebase for standalone testing)
+        // Mock Party Data 
         let players = [];
 
         // UI Elements
@@ -372,7 +382,6 @@ Tap the download or copy icon in the top corner of this code block to save it di
 
         // Game Flow
         function startBriefing() {
-            // Assign roles (1 hunter, rest hiders)
             let hunterIndex = Math.floor(Math.random() * players.length);
             players.forEach((p, i) => p.role = (i === hunterIndex) ? 'HUNTER' : 'HIDER');
             
@@ -399,14 +408,13 @@ Tap the download or copy icon in the top corner of this code block to save it di
             switchScreen('game');
             initMap();
             startTracking();
-            startPhaseTimer(3 * 60, "INFILTRATION PHASE", startHuntPhase); // 3 min headstart
+            startPhaseTimer(3 * 60, "INFILTRATION PHASE", startHuntPhase); 
         }
 
-        // Map Initialization (Using Free OpenStreetMap)
+        // Map Initialization
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([userLat, userLng], 15);
             
-            // Standard OSM Tiles (No API Key Required) - Filtered via CSS to look tactical
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '© OpenStreetMap'
@@ -415,9 +423,11 @@ Tap the download or copy icon in the top corner of this code block to save it di
             let iconClass = role === 'HUNTER' ? 'blip-hunter' : 'blip-hider';
             let customIcon = L.divIcon({ className: iconClass, iconSize: [20, 20] });
             
+            // Creates your marker and adds the permanent "YOU" label
             userMarker = L.marker([userLat, userLng], {icon: customIcon}).addTo(map);
+            userMarker.bindTooltip("YOU", {permanent: true, direction: 'top', offset: [0, -10]}).openTooltip();
 
-            // Add bots to map for testing
+            // Add bots/other players for testing
             players.forEach(p => {
                 if(p.name !== playerName) {
                     let pIcon = L.divIcon({ className: p.role === 'HUNTER' ? 'blip-hunter' : 'blip-hider', iconSize: [20,20] });
@@ -451,7 +461,7 @@ Tap the download or copy icon in the top corner of this code block to save it di
             if(role === 'HIDER') alert("WARNING: HUNTERS ARE INBOUND. EVADE.");
             if(role === 'HUNTER') alert("INFILTRATION COMPLETE. LET THE HUNT BEGIN.");
             
-            startPhaseTimer(60 * 60, "HUNT PHASE", endGame); // 1 hour hunt
+            startPhaseTimer(60 * 60, "HUNT PHASE", endGame); 
         }
 
         function endGame() {
@@ -460,4 +470,3 @@ Tap the download or copy icon in the top corner of this code block to save it di
     </script>
 </body>
 </html>
-
