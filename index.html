@@ -1,0 +1,463 @@
+Tap the download or copy icon in the top corner of this code block to save it directly to your phone as index.html. Once saved, you can upload it to GitHub using the "Choose your files" button.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Paste your Google Site Verification tag right below this line later! -->
+    
+    <title>Tactical Pursuit: Hide & Seek</title>
+    
+    <!-- Leaflet CSS for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --ui-bg: #111;
+            --neon-green: #0f0;
+            --neon-red: #f00;
+            --text-main: #33ff33;
+            --text-alert: #ff3333;
+            --font-tactical: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-tactical);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Tactical Scanline Overlay */
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 1000;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* Top HUD */
+        #hud {
+            background-color: var(--ui-bg);
+            border-bottom: 2px solid var(--text-main);
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .hud-left, .hud-right {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hud-right {
+            text-align: right;
+        }
+
+        .role-text { font-weight: bold; font-size: 1.2rem; }
+        .hider-color { color: var(--text-main); }
+        .hunter-color { color: var(--text-alert); }
+        
+        .coords-text { font-size: 0.8rem; opacity: 0.8; margin-top: 4px; }
+        .offline-tag { color: var(--text-alert); font-weight: bold; }
+
+        .phase-text { font-size: 0.8rem; letter-spacing: 1px; }
+        .timer-text { font-size: 1.5rem; font-weight: bold; color: orange; }
+
+        /* Map Container Fixed Height */
+        #map-container {
+            flex-grow: 1;
+            position: relative;
+            min-height: 200px; /* Prevents collapsing to 0 */
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+
+        /* Radar Filter for Standard Maps */
+        .leaflet-tile {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(120%);
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .hidden { display: none !important; }
+
+        input, button {
+            background-color: #000;
+            border: 1px solid var(--text-main);
+            color: var(--text-main);
+            padding: 15px;
+            margin: 10px 0;
+            width: 100%;
+            max-width: 300px;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        button:active {
+            background-color: var(--text-main);
+            color: #000;
+        }
+
+        .btn-alert {
+            border-color: var(--text-alert);
+            color: var(--text-alert);
+        }
+        .btn-alert:active {
+            background-color: var(--text-alert);
+            color: #000;
+        }
+
+        /* Custom Blip Markers */
+        .blip-hider, .blip-hunter {
+            border-radius: 50%;
+            box-shadow: 0 0 10px currentColor;
+            animation: pulse 2s infinite;
+        }
+        .blip-hider { background-color: rgba(0, 255, 0, 0.5); border: 2px solid #0f0; color: #0f0; }
+        .blip-hunter { background-color: rgba(255, 0, 0, 0.5); border: 2px solid #f00; color: #f00; }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(inherit, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(inherit, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(inherit, 0); }
+        }
+
+        /* Briefing UI */
+        .briefing-box {
+            border: 2px solid var(--text-main);
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+            background: rgba(0, 255, 0, 0.05);
+        }
+        .briefing-box h2 { border-bottom: 1px solid var(--text-main); padding-bottom: 10px; margin-bottom: 10px; }
+        .briefing-box ul { padding-left: 20px; margin-bottom: 20px; }
+        .briefing-box li { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- LOBBY SCREEN -->
+    <div id="lobbyScreen" class="screen">
+        <h1>TACTICAL PURSUIT</h1>
+        <p>SECURE LOGIN TERMINAL</p>
+        
+        <input type="text" id="playerName" placeholder="OPERATIVE NAME">
+        
+        <button onclick="createParty()">CREATE PARTY</button>
+        
+        <div style="margin: 20px 0; border-top: 1px solid #333; width: 100%; max-width: 300px;"></div>
+        
+        <input type="text" id="partyCodeInput" placeholder="ENTER 4-DIGIT CODE">
+        <button onclick="joinParty()">JOIN PARTY</button>
+    </div>
+
+    <!-- WAITING ROOM SCREEN -->
+    <div id="waitingScreen" class="screen hidden">
+        <h2>PARTY CODE: <span id="displayPartyCode">----</span></h2>
+        <div style="margin: 20px 0;">
+            <h3>ROSTER:</h3>
+            <ul id="rosterList" style="list-style: none; padding: 0;">
+                <!-- Names populate here -->
+            </ul>
+        </div>
+        
+        <button id="startBtn" onclick="startBriefing()" class="hidden btn-alert">INITIATE PROTOCOL</button>
+        <button id="addBotsBtn" onclick="injectBots()" class="hidden">🤖 INJECT TEST BOTS</button>
+        
+        <p id="waitingMsg">WAITING FOR HOST TO INITIATE...</p>
+    </div>
+
+    <!-- BRIEFING SCREEN -->
+    <div id="briefingScreen" class="screen hidden">
+        <h1>MISSION BRIEFING</h1>
+        <h2 id="assignedRole" style="font-size: 2rem; margin: 10px 0;">ROLE: [CALCULATING]</h2>
+        
+        <div id="hiderRules" class="briefing-box hidden">
+            <h2>DIRECTIVES: HIDER</h2>
+            <ul>
+                <li>EVADE HUNTERS AT ALL COSTS.</li>
+                <li>NO VEHICLES ALLOWED. ON FOOT ONLY.</li>
+                <li>YOUR POSITION PINGS EVERY 5 MINUTES.</li>
+                <li>SURVIVE FOR 1 HOUR TO WIN.</li>
+            </ul>
+        </div>
+
+        <div id="hunterRules" class="briefing-box hidden">
+            <h2 class="hunter-color" style="border-color: var(--text-alert);">DIRECTIVES: HUNTER</h2>
+            <ul>
+                <li>ELIMINATE ALL HIDERS.</li>
+                <li>VEHICLES ARE AUTHORIZED.</li>
+                <li>HIDER LOCATIONS UPDATE EVERY 5 MINUTES.</li>
+                <li>ELIMINATE ALL TARGETS BEFORE TIME EXPIRES.</li>
+            </ul>
+        </div>
+
+        <button onclick="enterMap()">ACKNOWLEDGE DIRECTIVES</button>
+    </div>
+
+    <!-- MAIN GAME UI -->
+    <div id="hud" class="hidden">
+        <div class="hud-left">
+            <div id="hudRole" class="role-text">HIDER</div>
+            <div id="hudName">OPERATIVE</div>
+            <div id="hudCoords" class="coords-text"><span class="offline-tag">[OFFLINE]</span> ACQUIRING...</div>
+        </div>
+        <div class="hud-right">
+            <div id="phaseText" class="phase-text">INFILTRATION PHASE</div>
+            <div id="timerDisplay" class="timer-text">03:00</div>
+        </div>
+    </div>
+
+    <div id="map-container" class="hidden">
+        <div id="map"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Game State Variables
+        let playerName = "";
+        let partyCode = "";
+        let isHost = false;
+        let role = "";
+        let map, userMarker;
+        let userLat = 33.6000; // Default: Mission Viejo, CA
+        let userLng = -117.6720;
+        let hasLocation = false;
+        
+        // Mock Party Data (Replaces Firebase for standalone testing)
+        let players = [];
+
+        // UI Elements
+        const screens = {
+            lobby: document.getElementById('lobbyScreen'),
+            waiting: document.getElementById('waitingScreen'),
+            briefing: document.getElementById('briefingScreen'),
+            hud: document.getElementById('hud'),
+            mapContainer: document.getElementById('map-container')
+        };
+
+        function switchScreen(screenName) {
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            if(screenName === 'game') {
+                screens.hud.classList.remove('hidden');
+                screens.mapContainer.classList.remove('hidden');
+                setTimeout(() => { if(map) map.invalidateSize(); }, 200);
+            } else {
+                screens[screenName].classList.remove('hidden');
+            }
+        }
+
+        // Location Tracking
+        function startTracking() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition(
+                    (position) => {
+                        hasLocation = true;
+                        userLat = position.coords.latitude;
+                        userLng = position.coords.longitude;
+                        
+                        document.getElementById('hudCoords').innerHTML = 
+                            `LOC: ${userLat.toFixed(4)}, ${userLng.toFixed(4)}`;
+                        
+                        if(userMarker) {
+                            userMarker.setLatLng([userLat, userLng]);
+                            map.setView([userLat, userLng]);
+                        }
+                    },
+                    (error) => {
+                        console.error("GPS Error:", error);
+                        document.getElementById('hudCoords').innerHTML = 
+                            `<span class="offline-tag">[OFFLINE]</span> ${userLat.toFixed(4)}, ${userLng.toFixed(4)}`;
+                    },
+                    { enableHighAccuracy: true, maximumAge: 0 }
+                );
+            } else {
+                document.getElementById('hudCoords').innerHTML = `<span class="offline-tag">[NO GPS]</span>`;
+            }
+        }
+
+        // Lobby Functions
+        function createParty() {
+            playerName = document.getElementById('playerName').value.toUpperCase() || "HOST";
+            partyCode = Math.floor(1000 + Math.random() * 9000).toString();
+            isHost = true;
+            
+            players.push({ name: playerName, role: 'pending', lat: userLat, lng: userLng });
+            
+            document.getElementById('displayPartyCode').innerText = partyCode;
+            document.getElementById('startBtn').classList.remove('hidden');
+            document.getElementById('addBotsBtn').classList.remove('hidden');
+            document.getElementById('waitingMsg').classList.add('hidden');
+            
+            updateRoster();
+            switchScreen('waiting');
+        }
+
+        function joinParty() {
+            playerName = document.getElementById('playerName').value.toUpperCase() || "GUEST";
+            partyCode = document.getElementById('partyCodeInput').value;
+            
+            if(partyCode.length === 4) {
+                players.push({ name: playerName, role: 'pending', lat: userLat, lng: userLng });
+                document.getElementById('displayPartyCode').innerText = partyCode;
+                updateRoster();
+                switchScreen('waiting');
+            } else {
+                alert("INVALID CODE");
+            }
+        }
+
+        function injectBots() {
+            players.push({ name: "BOT-ALPHA", role: 'pending', lat: userLat + 0.001, lng: userLng + 0.001 });
+            players.push({ name: "BOT-BRAVO", role: 'pending', lat: userLat - 0.002, lng: userLng + 0.001 });
+            updateRoster();
+        }
+
+        function updateRoster() {
+            const list = document.getElementById('rosterList');
+            list.innerHTML = "";
+            players.forEach(p => {
+                let li = document.createElement('li');
+                li.innerText = `> ${p.name}`;
+                list.appendChild(li);
+            });
+        }
+
+        // Game Flow
+        function startBriefing() {
+            // Assign roles (1 hunter, rest hiders)
+            let hunterIndex = Math.floor(Math.random() * players.length);
+            players.forEach((p, i) => p.role = (i === hunterIndex) ? 'HUNTER' : 'HIDER');
+            
+            let myPlayer = players.find(p => p.name === playerName);
+            role = myPlayer.role;
+            
+            document.getElementById('assignedRole').innerText = `ROLE: ${role}`;
+            if(role === 'HUNTER') {
+                document.getElementById('assignedRole').className = 'hunter-color';
+                document.getElementById('hunterRules').classList.remove('hidden');
+            } else {
+                document.getElementById('assignedRole').className = 'hider-color';
+                document.getElementById('hiderRules').classList.remove('hidden');
+            }
+            
+            switchScreen('briefing');
+        }
+
+        function enterMap() {
+            document.getElementById('hudName').innerText = playerName;
+            document.getElementById('hudRole').innerText = role;
+            if(role === 'HUNTER') document.getElementById('hudRole').className = 'role-text hunter-color';
+            
+            switchScreen('game');
+            initMap();
+            startTracking();
+            startPhaseTimer(3 * 60, "INFILTRATION PHASE", startHuntPhase); // 3 min headstart
+        }
+
+        // Map Initialization (Using Free OpenStreetMap)
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([userLat, userLng], 15);
+            
+            // Standard OSM Tiles (No API Key Required) - Filtered via CSS to look tactical
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            let iconClass = role === 'HUNTER' ? 'blip-hunter' : 'blip-hider';
+            let customIcon = L.divIcon({ className: iconClass, iconSize: [20, 20] });
+            
+            userMarker = L.marker([userLat, userLng], {icon: customIcon}).addTo(map);
+
+            // Add bots to map for testing
+            players.forEach(p => {
+                if(p.name !== playerName) {
+                    let pIcon = L.divIcon({ className: p.role === 'HUNTER' ? 'blip-hunter' : 'blip-hider', iconSize: [20,20] });
+                    L.marker([p.lat, p.lng], {icon: pIcon}).addTo(map).bindPopup(p.name);
+                }
+            });
+        }
+
+        // Timers
+        let gameTimer;
+        function startPhaseTimer(seconds, phaseName, callback) {
+            document.getElementById('phaseText').innerText = phaseName;
+            clearInterval(gameTimer);
+            
+            let timeLeft = seconds;
+            
+            gameTimer = setInterval(() => {
+                let m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+                let s = (timeLeft % 60).toString().padStart(2, '0');
+                document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(gameTimer);
+                    if(callback) callback();
+                }
+                timeLeft--;
+            }, 1000);
+        }
+
+        function startHuntPhase() {
+            if(role === 'HIDER') alert("WARNING: HUNTERS ARE INBOUND. EVADE.");
+            if(role === 'HUNTER') alert("INFILTRATION COMPLETE. LET THE HUNT BEGIN.");
+            
+            startPhaseTimer(60 * 60, "HUNT PHASE", endGame); // 1 hour hunt
+        }
+
+        function endGame() {
+            alert("TIME EXPIRED. HIDERS WIN.");
+        }
+    </script>
+</body>
+</html>
+
